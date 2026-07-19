@@ -4,31 +4,31 @@ Reimplementation target:
 
 **Rohini Joshi, “Segmentation of Teeth in Panoramic X-ray Image Using U-net Algorithm,” IEEE AIIoT 2024.**
 
-This repository is designed as a reproducible delivery package with two execution modes.
+This repository is a reproducible delivery package with two strictly separated execution modes.
 
-## 1. Smoke simulation — bundled and already executed
+## 1. Smoke simulation — executed and verified
 
 ```bash
 ./run_smoke.sh
 ```
 
-Uses the bundled synthetic dental-style dataset only to verify the complete pipeline:
+Pipeline:
 
 ```text
-data → U-Net → training → Dice/IoU → prediction
-→ morphology → connected components → contours
+bootstrap data → U-Net training → Dice/IoU → checkpoint
+→ prediction → morphology → connected components → contours
 → pixel measurements → Figures 1–11
 ```
 
-Actual executed smoke outputs are in:
+Executed smoke metrics committed as text records:
 
-```text
-outputs/smoke/
-```
+- Dice: `0.9171192049980164`
+- IoU: `0.846945196390152`
+- Loss: `0.43136271834373474`
 
-The shipped smoke checkpoint, metrics, history, manifests, and 11 figures are real outputs of the included code.
+The downloadable user-deliverable ZIP contains the executed smoke checkpoint and all 11 generated PNG figures. The GitHub source repository can regenerate them deterministically with the smoke runner.
 
-**Smoke metrics are not claimed as paper reproduction metrics.**
+**Smoke results validate the software only. They are not represented as the IEEE paper's TDD reproduction.**
 
 ## 2. Full paper simulation — Tufts Dental Database
 
@@ -44,65 +44,39 @@ Equivalent:
 python scripts/run_pipeline.py paper --download
 ```
 
-The script attempts to acquire the target TDD dataset from the published Kaggle mirror:
+The acquisition chain is autonomous and refuses to silently substitute another dental dataset:
+
+1. cited full-TDD Kaggle mirror `iftakharh/tufts-dental-datasetcustomized`;
+2. official Tufts radiograph archive `https://tdd.ece.tufts.edu/Tufts_Dental_Database/Radiographs.zip`;
+3. active radiograph fallback `manarmaged/tufts-radiographs`;
+4. verified real TDD tooth masks from `gopimeruva/Dental_Xray_Anamoly_Detection/TUFTS-project/Segmentation/teeth_mask/`;
+5. strict pairing by original numeric image ID;
+6. minimum `900` matched-pair provenance gate.
+
+Then:
 
 ```text
-iftakharh/tufts-dental-datasetcustomized
-```
-
-Then automatically:
-
-```text
-download TDD
-→ normalize images/masks
-→ validate pairing
-→ freeze split manifests
+acquire TDD
+→ normalize image/mask pairs
+→ verify provenance
+→ freeze deterministic manifests
 → train 512×512 U-Net
 → evaluate Dice/IoU
-→ save checkpoint
+→ save best checkpoint
 → generate Figures 1–11
+→ compare against paper targets
+→ acceptance gate
 ```
 
-If you obtained the official TDD archive manually:
+An authorized local archive is also supported:
 
 ```bash
 python scripts/run_pipeline.py paper --archive /absolute/path/to/tdd.zip
 ```
 
-If TDD is already prepared:
-
-```bash
-python scripts/run_pipeline.py paper --skip-prepare
-```
-
-## Full dataset acquisition
-
-Primary:
-
-```bash
-python scripts/download_all_data.py --dataset tdd
-```
-
-The downloader tries:
-
-1. `kagglehub`
-2. Kaggle CLI
-3. Kaggle public archive API
-4. an explicitly supplied authorized local archive
-
-It never silently substitutes another dataset.
-
-## Run everything
-
-```bash
-./run_all.sh
-```
-
-This runs smoke first, then attempts the full TDD paper run.
-
 ## Paper configuration hypothesis
 
-From the candidate paper’s published pseudocode:
+From the candidate paper's published pseudocode:
 
 - U-Net
 - Binary Cross Entropy
@@ -110,39 +84,50 @@ From the candidate paper’s published pseudocode:
 - learning rate `0.001`
 - `50` epochs
 
-Paper mode defaults to 512×512 input. The paper does not publish all details required for bit-identical reproduction, including exact split IDs, seed, original checkpoint, complete augmentation parameters, and several preprocessing choices.
+Paper mode defaults to 512×512 input. The publication does not disclose the exact original split IDs, seed, checkpoint, complete augmentation parameters, or every preprocessing/post-processing choice; therefore exact point-for-point identity cannot be claimed without those author-side assets.
 
-## Output layout
+Reported paper targets:
 
-```text
-outputs/
-├── smoke/        # executed and bundled
-└── paper/        # populated after successful TDD run
-```
+- Dice ≈ `0.88` (evaluation screenshot ≈ `0.8837`)
+- IoU ≈ `0.79` (evaluation screenshot ≈ `0.7986`)
 
-Each completed run contains:
+## Paper-mode acceptance gate
 
-```text
-metrics.json
-history.csv
-train_manifest.csv
-validation_manifest.csv
-test_manifest.csv
-checkpoints/best_model.pt
-figures/
-  figure_01_unet_architecture.png
-  ...
-  figure_11_contour_overlay.png
+`outputs/paper/` is user-deliverable only when all are true:
+
+1. at least 900 verified TDD radiograph/tooth-mask pairs;
+2. train/validation/test manifests saved;
+3. completed training and best checkpoint;
+4. finite loss, Dice, and IoU;
+5. all 11 required figures present;
+6. `PAPER_COMPARISON.md` generated;
+7. `scripts/acceptance_check.py --output-dir outputs/paper --require-paper-data` passes.
+
+## Key commands
+
+```bash
+# environment
+pip install -r requirements.txt
+
+# smoke
+make smoke
+
+# full paper run
+make paper
+
+# everything
+make all
 ```
 
 ## Documentation
 
-- `docs/RUNBOOK.md` — complete operational procedure.
-- `docs/DATASETS.md` — dataset provenance and acquisition.
-- `docs/REPRODUCIBILITY_REPORT.md` — what is exact vs inferred.
-- `outputs/paper/README.md` — current exact-paper-run status.
-- `DELIVERABLE_INDEX.md` — pack inventory.
+- `docs/RUNBOOK.md` — operational procedure.
+- `docs/DATASETS.md` — data provenance.
+- `docs/TDD_ACQUISITION.md` — autonomous exact-data acquisition chain.
+- `docs/PAPER_OUTPUT_SPEC.md` — figure/metric fidelity contract.
+- `docs/REPRODUCIBILITY_REPORT.md` — reported vs inferred configuration.
+- `USER_DELIVERABLE_STATUS.md` — exact current delivery status.
 
-## Important scientific honesty
+## Scientific integrity
 
-A completed run on a different dataset is **not** a full reproduction of the paper. The full paper run is considered complete only when the actual Tufts Dental Database is acquired and `outputs/paper/` is generated from it.
+A run on synthetic data or a different panoramic dataset is **not** a reproduction of the paper. The repository deliberately fails rather than relabeling another dataset as TDD or fabricating paper-identical figures/metrics.
