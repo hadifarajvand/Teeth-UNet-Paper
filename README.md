@@ -2,20 +2,22 @@
 
 **زبان:** **فارسی** | [English](README.en.md)
 
-مقاله‌ی هدف:
+این پروژه برای بازپیاده‌سازی مقاله‌ی زیر آماده شده است:
 
 **Rohini Joshi, “Segmentation of Teeth in Panoramic X-ray Image Using U-net Algorithm,” IEEE AIIoT 2024.**
 
-این مخزن یک پکیج بازتولیدپذیر و قابل‌تحویل به کاربر است که دو حالت اجرای کاملاً جدا دارد:
+هدف پروژه این است که روند مقاله تا حد ممکن به‌صورت قابل‌اجرا و قابل‌بررسی در اختیار خواننده باشد؛ از آماده‌سازی دیتاست و آموزش مدل گرفته تا محاسبه‌ی معیارها و تولید خروجی‌های تصویری.
 
-- **Smoke Mode:** تست سریع و کامل کل پایپ‌لاین با دیتاست مصنوعی/Bootstrap برای اطمینان از سالم بودن کد.
-- **Paper Mode:** دانلود دیتاست واقعی Tufts Dental Database، آماده‌سازی، اعتبارسنجی، آموزش U-Net، محاسبه‌ی معیارها و تولید Figureهای 1 تا 11 مقاله.
+دو حالت اجرا در نظر گرفته شده است:
 
-> این مخزن هیچ دیتاست دیگری را به‌صورت پنهانی جایگزین TDD نمی‌کند و نتیجه‌ی آن را به نام مقاله گزارش نمی‌دهد.
+- **Smoke Mode** برای یک تست سریع و کامل از سالم بودن کل کد و پایپ‌لاین.
+- **Paper Mode** برای اجرای اصلی روی دیتاست Tufts Dental Database و تولید خروجی‌های مربوط به مقاله.
 
 ---
 
-## 1) کلون کردن مخزن و نصب محیط
+## شروع سریع
+
+ابتدا مخزن را دریافت کرده و محیط پایتون را آماده کنید:
 
 ```bash
 git clone https://github.com/hadifarajvand/Teeth-UNet-Paper.git
@@ -27,109 +29,108 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
----
-
-## 2) دانلود دیتاست‌ها مستقیماً داخل همین Repository
-
-فرمان اصلی دانلود و آماده‌سازی دیتاست‌ها:
+برای اجرای یک تست سریع:
 
 ```bash
-./download_datasets.sh --dataset all
+make smoke
 ```
 
-یا معادل پایتون:
+برای دانلود و آماده‌سازی دیتاست اصلی مقاله:
+
+```bash
+make datasets-tdd
+```
+
+و برای اجرای کامل Paper Mode:
+
+```bash
+make paper
+```
+
+---
+
+## دانلود دیتاست‌ها
+
+اسکریپت اصلی دیتاست‌ها را مستقیماً داخل همین repository آماده می‌کند:
 
 ```bash
 python scripts/download_datasets.py --dataset all
 ```
 
-تمام داده‌ها داخل پوشه‌ی `data/` همین repository قرار می‌گیرند:
+یا با wrapper ساده‌تر:
+
+```bash
+bash download_datasets.sh --dataset all
+```
+
+ساختار داده‌ها بعد از آماده‌سازی به این شکل خواهد بود:
 
 ```text
 data/
 ├── bootstrap_synthetic/          # دیتاست Smoke
-├── tdd_download/                 # فایل‌های خام/دانلودشده‌ی TDD
-├── tdd/                          # دیتاست نهایی آماده برای Paper Mode
+├── tdd_download/                 # فایل‌های خام دانلودشده
+├── tdd/                          # دیتاست آماده برای Paper Mode
 │   ├── images/
 │   └── masks/
-└── open_reference_download/      # دیتاست مرجع اختیاری
+└── open_reference_download/      # داده‌ی مرجع اختیاری
 ```
 
-### دانلود فقط دیتاست اصلی مقاله، TDD
+### فقط دیتاست اصلی مقاله
 
 ```bash
-./download_datasets.sh --dataset tdd
+python scripts/download_datasets.py --dataset tdd
 ```
 
-این فرمان به‌صورت خودکار مراحل زیر را انجام می‌دهد:
+این فرمان دانلود، استخراج، پیدا کردن جفت‌های تصویر و Mask، آماده‌سازی ساختار نهایی و اعتبارسنجی دیتاست را انجام می‌دهد.
 
-```text
-دانلود TDD
-→ استخراج فایل‌ها
-→ Pair کردن تصویر و Mask
-→ نرمال‌سازی ساختار فایل‌ها
-→ انتقال/آماده‌سازی داخل data/tdd/
-→ اعتبارسنجی دیتاست
-→ بررسی حداقل 900 جفت معتبر تصویر/Mask
-```
-
-بعد از موفقیت، دیتاستی که Paper Mode استفاده می‌کند دقیقاً اینجاست:
+فایل‌های نهایی مورد استفاده‌ی آموزش در این مسیر قرار می‌گیرند:
 
 ```text
 data/tdd/images/
 data/tdd/masks/
 ```
 
-### ساخت/دانلود فقط دیتاست Smoke
-
-```bash
-./download_datasets.sh --dataset smoke
-```
-
-### دانلود دیتاست مرجع اختیاری
-
-```bash
-./download_datasets.sh --dataset open-reference
-```
+برای اطمینان از اینکه دیتاست کامل و مناسب اجرای اصلی است، اسکریپت حداقل 900 جفت معتبر تصویر و Mask را بررسی می‌کند.
 
 ### دانلود مجدد از ابتدا
 
 ```bash
-./download_datasets.sh --dataset tdd --force
+python scripts/download_datasets.py --dataset tdd --force
 ```
 
-### استفاده از آرشیو رسمی/مجاز TDD که قبلاً دانلود شده است
+### استفاده از آرشیوی که از قبل دارید
+
+اگر نسخه‌ی رسمی یا مجاز TDD را از قبل در اختیار دارید:
 
 ```bash
-./download_datasets.sh \
+python scripts/download_datasets.py \
   --dataset tdd \
   --archive /absolute/path/to/tufts-dental-database.zip
 ```
 
 ---
 
-## 3) مسیرهای دانلود TDD که اسکریپت امتحان می‌کند
+## مسیرهای دریافت TDD
 
-سیستم دانلود به‌صورت خودکار چند مسیر معتبر را امتحان می‌کند و اگر دیتاست واقعی در دسترس نباشد **Fail می‌شود**؛ دیتاست دیگری را جایگزین نمی‌کند.
-
-ترتیب اصلی:
+چون دسترسی به Tufts Dental Database ممکن است بسته به منبع یا نیاز به احراز هویت متفاوت باشد، downloader چند مسیر را به‌ترتیب امتحان می‌کند:
 
 1. mirror کامل TDD روی Kaggle: `iftakharh/tufts-dental-datasetcustomized`
-2. KaggleHub / Kaggle CLI / Direct Kaggle API
-3. آرشیو رسمی Radiographهای Tufts در fallback ترکیبی
+2. KaggleHub، Kaggle CLI یا API دانلود Kaggle
+3. آرشیو رسمی Radiographهای Tufts
 4. mirror فعال Radiographها: `manarmaged/tufts-radiographs`
-5. Tooth Maskهای واقعی TDD از منبع عمومی مبتنی بر Tufts
-6. تطبیق سخت‌گیرانه با **Original Numeric Image ID**
-7. حداقل **900 جفت معتبر** برای اجازه‌ی شروع Paper Mode
+5. Tooth Maskهای TDD از منبع عمومی مبتنی بر Tufts
+6. تطبیق فایل‌ها با شناسه‌ی عددی اصلی تصاویر
 
-اگر Kaggle نیاز به احراز هویت داشت، credential استاندارد Kaggle را در سیستم تنظیم کنید؛ سپس همان فرمان دانلود را دوباره اجرا کنید.
+اگر Kaggle نیاز به ورود داشته باشد، کافی است credential معمول Kaggle را روی سیستم تنظیم کرده و همان فرمان را دوباره اجرا کنید.
 
 ---
 
-## 4) اجرای Smoke Simulation
+## Smoke Mode
+
+Smoke Mode برای این است که بدون نیاز به دیتاست اصلی، مطمئن شویم کل پروژه از ابتدا تا انتها درست اجرا می‌شود.
 
 ```bash
-./run_smoke.sh
+make smoke
 ```
 
 یا:
@@ -138,36 +139,24 @@ data/tdd/masks/
 python scripts/run_pipeline.py smoke
 ```
 
-پایپ‌لاین:
+در این اجرا مراحل اصلی شامل آموزش U-Net، محاسبه‌ی Dice و IoU، ذخیره‌ی checkpoint، prediction، post-processing و تولید Figureهای 1 تا 11 انجام می‌شود.
 
-```text
-Bootstrap Dataset
-→ آموزش U-Net
-→ Dice / IoU
-→ ذخیره Checkpoint
-→ Prediction
-→ Morphology
-→ Connected Components
-→ Contours / Measurements
-→ تولید Figures 1–11
-```
-
-نتیجه‌ی Smoke که قبلاً با همین کد اجرا و اعتبارسنجی شده است:
+یک اجرای کامل Smoke قبلاً با همین کد انجام شده و نتیجه‌ی آن به شکل زیر بوده است:
 
 - Dice: `0.9171192049980164`
 - IoU: `0.846945196390152`
 - Loss: `0.43136271834373474`
 
-**این اعداد فقط سالم بودن پایپ‌لاین را ثابت می‌کنند و نتیجه‌ی Paper Mode روی TDD محسوب نمی‌شوند.**
+این نتایج فقط برای بررسی سالم بودن کد هستند و جایگزین نتیجه‌ی اجرای اصلی روی TDD محسوب نمی‌شوند.
 
 ---
 
-## 5) اجرای کامل شبیه‌سازی مقاله
+## Paper Mode
 
-ساده‌ترین روش:
+برای اجرای اصلی مقاله:
 
 ```bash
-./run_paper.sh
+make paper
 ```
 
 یا:
@@ -176,61 +165,44 @@ Bootstrap Dataset
 python scripts/run_pipeline.py paper --download
 ```
 
-Runner اکنون کل فرایند را خودش انجام می‌دهد:
+این دستور به‌ترتیب کارهای زیر را انجام می‌دهد:
 
 ```text
-دانلود TDD داخل repository/data/
-→ آماده‌سازی data/tdd/images و data/tdd/masks
-→ Dataset Validation
-→ TDD Provenance Validation با حداقل 900 Pair
-→ ذخیره‌ی Train/Validation/Test Manifest
+دریافت و آماده‌سازی TDD
+→ بررسی جفت‌های Image/Mask
+→ ساخت Train/Validation/Test Manifest
 → آموزش U-Net با ورودی 512×512
-→ محاسبه Loss / Dice / IoU
+→ محاسبه Loss، Dice و IoU
 → ذخیره Best Checkpoint
 → تولید Figureهای 1 تا 11
-→ مقایسه با مقادیر گزارش‌شده‌ی مقاله
-→ Final Acceptance Gate
+→ مقایسه نتایج با مقادیر گزارش‌شده در مقاله
 ```
 
 ---
 
-## 6) اجرای Smoke و Paper با هم
+## تنظیمات اصلی مدل
 
-```bash
-./run_all.sh
-```
-
-یا:
-
-```bash
-python scripts/run_pipeline.py both --download
-```
-
----
-
-## 7) تنظیمات اصلی Paper Mode
-
-بر اساس pseudocode منتشرشده در مقاله:
+بر اساس اطلاعات منتشرشده در مقاله، تنظیمات اصلی Paper Mode به این شکل در نظر گرفته شده‌اند:
 
 - مدل: `U-Net`
 - Loss: `Binary Cross Entropy`
 - Optimizer: `Adam`
 - Learning Rate: `0.001`
 - Epochs: `50`
-- Input در Paper Mode: `512×512`
+- Input Size: `512×512`
 
-مقادیر گزارش‌شده در مقاله:
+مقادیر گزارش‌شده در مقاله تقریباً عبارت‌اند از:
 
-- Dice ≈ `0.88`، در اسکرین‌شات ارزیابی حدود `0.8837`
-- IoU ≈ `0.79`، در اسکرین‌شات ارزیابی حدود `0.7986`
+- Dice ≈ `0.88`
+- IoU ≈ `0.79`
 
-مقاله تمام جزئیات لازم برای بازتولید بیت‌به‌بیت را منتشر نکرده است؛ از جمله Exact Split IDs، Seed اصلی، Checkpoint نویسندگان، تمام Augmentationها و همه‌ی پارامترهای Pre/Post-processing. بنابراین این مخزن خروجی را صادقانه به‌عنوان بازپیاده‌سازی paper-faithful گزارش می‌کند و عدد یا Figure جعلی تولید نمی‌کند.
+بعضی جزئیات اجرایی مانند split دقیق داده‌ها، seed اصلی، checkpoint نویسندگان و تمام تنظیمات preprocessing در مقاله منتشر نشده‌اند. به همین دلیل هدف این repository یک بازپیاده‌سازی نزدیک و قابل‌بررسی از روش مقاله است، نه ادعای تطابق بیت‌به‌بیت با اجرای نویسندگان.
 
 ---
 
-## 8) خروجی‌ها
+## خروجی‌ها
 
-### خروجی Smoke
+### Smoke Mode
 
 ```text
 outputs/smoke/
@@ -247,7 +219,7 @@ outputs/smoke/
     └── figure_11_contour_overlay.png
 ```
 
-### خروجی Paper Mode بعد از اجرای موفق روی TDD واقعی
+### Paper Mode
 
 ```text
 outputs/paper/
@@ -265,21 +237,29 @@ outputs/paper/
     └── figure_11_contour_overlay.png
 ```
 
+Figureهای اصلی شامل معماری U-Net، workflow، نمونه‌ی radiograph و mask، نمودارهای Dice/IoU، خروجی segmentation، post-processing، contour و اندازه‌گیری‌های پیکسلی هستند.
+
 ---
 
-## 9) شرط نهایی قابل‌تحویل بودن Paper Mode
+## اجرای همه مراحل
 
-`outputs/paper/` فقط زمانی User-Deliverable محسوب می‌شود که همه‌ی موارد زیر پاس شوند:
+برای اجرای Smoke و سپس Paper Mode:
 
-1. حداقل 900 جفت واقعی و معتبر TDD Image/Mask
-2. ذخیره‌ی Train/Validation/Test Manifest
-3. پایان آموزش و وجود Best Checkpoint
-4. معتبر بودن Loss، Dice و IoU
-5. وجود هر 11 Figure موردنیاز
-6. تولید `PAPER_COMPARISON.md`
-7. پاس شدن Final Acceptance Check
+```bash
+make all
+```
 
-فرمان بررسی:
+یا:
+
+```bash
+python scripts/run_pipeline.py both --download
+```
+
+---
+
+## بررسی خروجی نهایی
+
+بعد از اجرای Paper Mode می‌توان کامل بودن خروجی‌ها را با این فرمان بررسی کرد:
 
 ```bash
 python scripts/acceptance_check.py \
@@ -287,52 +267,52 @@ python scripts/acceptance_check.py \
   --require-paper-data
 ```
 
+این بررسی وجود checkpoint، metrics، manifests و Figureهای موردنیاز را کنترل می‌کند.
+
 ---
 
-## 10) فرمان‌های اصلی
+## فرمان‌های پرکاربرد
 
 ```bash
 # نصب وابستگی‌ها
 pip install -r requirements.txt
 
-# دانلود همه دیتاست‌ها داخل data/ همین repository
-./download_datasets.sh --dataset all
+# دانلود همه دیتاست‌ها
+make datasets
 
-# فقط دیتاست TDD
-./download_datasets.sh --dataset tdd
+# فقط TDD
+make datasets-tdd
 
-# اجرای Smoke
+# Smoke Test
 make smoke
 
-# اجرای کامل Paper Mode
+# اجرای اصلی مقاله
 make paper
 
 # اجرای همه مراحل
 make all
+
+# بسته‌بندی خروجی‌ها
+make package
 ```
 
 ---
 
-## 11) فایل‌های مهم پروژه
+## فایل‌های مهم پروژه
 
 - `README.md` — راهنمای اصلی فارسی
 - `README.en.md` — نسخه‌ی انگلیسی
-- `download_datasets.sh` — دانلود یک‌مرحله‌ای دیتاست‌ها داخل repo
-- `scripts/download_datasets.py` — دانلود + آماده‌سازی + validation دیتاست‌ها
-- `scripts/download_all_data.py` — acquisition layer و fallbackها
-- `scripts/download_tdd_hybrid.py` — fallback ترکیبی TDD
-- `scripts/run_pipeline.py` — اجرای Smoke/Paper/Both
-- `docs/RUNBOOK.md` — Runbook عملیاتی
-- `docs/DATASETS.md` — provenance دیتاست‌ها
-- `docs/TDD_ACQUISITION.md` — مسیرهای acquisition دیتاست TDD
-- `docs/PAPER_OUTPUT_SPEC.md` — قرارداد تطابق Figure/Metric
-- `docs/REPRODUCIBILITY_REPORT.md` — تفاوت تنظیمات گزارش‌شده و inferred
-- `USER_DELIVERABLE_STATUS.md` — وضعیت دقیق deliverable
+- `download_datasets.sh` — wrapper ساده برای دریافت دیتاست‌ها
+- `scripts/download_datasets.py` — دانلود و آماده‌سازی دیتاست‌ها
+- `scripts/run_pipeline.py` — اجرای Smoke و Paper Mode
+- `scripts/reproduce_all.py` — آموزش، ارزیابی و تولید خروجی‌ها
+- `docs/RUNBOOK.md` — راهنمای مرحله‌به‌مرحله‌ی فارسی
+- `docs/RUNBOOK.en.md` — نسخه‌ی انگلیسی Runbook
+- `docs/DATASETS.md` — توضیحات مربوط به دیتاست‌ها
+- `docs/REPRODUCIBILITY_REPORT.md` — جزئیات بازتولیدپذیری پروژه
 
 ---
 
-## صداقت علمی
-
-اجرای مدل روی دیتاست مصنوعی یا یک دیتاست پانورامیک دیگر، بازتولید مقاله نیست. این مخزن عمداً در صورت نبود دیتاست واقعی TDD متوقف می‌شود و خروجی ساختگی یا دیتاست جایگزین را به نام نتیجه‌ی مقاله منتشر نمی‌کند.
+اگر فقط می‌خواهید سریع پروژه را بررسی کنید، `make smoke` بهترین نقطه‌ی شروع است. برای اجرای کامل مقاله، ابتدا `make datasets-tdd` و سپس `make paper` را اجرا کنید.
 
 برای نسخه‌ی انگلیسی این راهنما: **[README.en.md](README.en.md)**
