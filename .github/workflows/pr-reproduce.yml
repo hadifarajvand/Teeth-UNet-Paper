@@ -1,0 +1,48 @@
+name: PR reproducibility gate
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-and-data-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Rebuild smoke outputs
+        run: |
+          python scripts/generate_bootstrap_dataset.py --root data/bootstrap_synthetic --count 48
+          python scripts/reproduce_all.py --config configs/smoke.yaml
+          python scripts/acceptance_check.py --output-dir outputs/smoke
+      - name: Probe exact TDD acquisition chain
+        shell: bash
+        run: |
+          mkdir -p outputs/acquisition_probe
+          set +e
+          python scripts/download_all_data.py --dataset tdd 2>&1 | tee outputs/acquisition_probe/tdd.log
+          code=${PIPESTATUS[0]}
+          set -e
+          echo "$code" > outputs/acquisition_probe/exit_code.txt
+          if [ "$code" -eq 0 ]; then
+            python scripts/prepare_tdd.py --source data/tdd_download --dest data/tdd --min-pairs 900
+            python scripts/validate_dataset.py --root data/tdd | tee outputs/acquisition_probe/validation.txt
+            python scripts/verify_tdd_provenance.py --root data/tdd --min-pairs 900 | tee outputs/acquisition_probe/provenance.txt
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reproducibility-probe
+          path: |
+            outputs/smoke
+            outputs/acquisition_probe
+            outputs/tdd_provenance.json
+          retention-days: 30
