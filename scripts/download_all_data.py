@@ -1,24 +1,21 @@
 #!/usr/bin/env python3
-"""
-Dataset acquisition for the teeth-segmentation reproduction.
+"""Dataset acquisition for the teeth-segmentation reproduction.
 
 Priority for --dataset tdd:
 1) Existing prepared data/tdd/images + data/tdd/masks.
-2) KaggleHub public dataset mirror.
-3) Kaggle CLI.
-4) Direct Kaggle public API archive endpoint.
-5) User-supplied local archive (--archive).
+2) Peer-reviewed Kaggle full-TDD mirror (`iftakharh/tufts-dental-datasetcustomized`).
+3) Kaggle CLI / direct public Kaggle API for that mirror.
+4) Hybrid Tufts acquisition fallback:
+   - radiographs: active Kaggle `manarmaged/tufts-radiographs`
+   - real TDD tooth masks: public Tufts-derived GitHub mask directory
+   - strict pairing by original numeric image ID; >=900 matches required.
+5) Explicitly supplied authorized local archive (--archive).
 
-The target mirror cited by later peer-reviewed literature:
-    iftakharh/tufts-dental-datasetcustomized
-
-The official TDD source may require a download-permission request:
-    https://tdd.ece.tufts.edu/
-
-This script NEVER substitutes a different dataset while claiming it is TDD.
+The official TDD source may require download permission: https://tdd.ece.tufts.edu/
+This script NEVER substitutes a different dental dataset while claiming it is TDD.
 """
 from __future__ import annotations
-import argparse, shutil, subprocess, urllib.request, zipfile
+import argparse, shutil, subprocess, sys, urllib.request, zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -65,18 +62,34 @@ def try_direct_kaggle(dataset: str, out: Path) -> bool:
     try:
         print(f"[download] Trying direct Kaggle public API: {url}"); out.mkdir(parents=True,exist_ok=True); tmp=out/"dataset.zip"
         req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0"})
-        with urllib.request.urlopen(req,timeout=120) as r, open(tmp,"wb") as f: shutil.copyfileobj(r,f)
+        with urllib.request.urlopen(req,timeout=180) as r, open(tmp,"wb") as f: shutil.copyfileobj(r,f)
         if not zipfile.is_zipfile(tmp): raise RuntimeError("Downloaded response is not a ZIP archive; Kaggle authentication may be required.")
         extract_archive(tmp,out); tmp.unlink(missing_ok=True); return True
     except Exception as e:
         print(f"[download] Direct Kaggle API failed: {e}"); return False
 
+def try_hybrid_tdd(raw: Path) -> bool:
+    print("[download] Trying hybrid exact-TDD acquisition fallback...")
+    cmd=[sys.executable,str(ROOT/"scripts/download_tdd_hybrid.py"),"--out",str(raw/"hybrid"),"--min-pairs","900"]
+    try:
+        subprocess.run(cmd,cwd=ROOT,check=True)
+        return True
+    except Exception as e:
+        print(f"[download] Hybrid TDD acquisition failed: {e}")
+        return False
+
 def download_url(url: str, dest: Path) -> None:
     dest.parent.mkdir(parents=True,exist_ok=True); req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0"})
-    with urllib.request.urlopen(req,timeout=120) as r, open(dest,"wb") as f: shutil.copyfileobj(r,f)
+    with urllib.request.urlopen(req,timeout=180) as r, open(dest,"wb") as f: shutil.copyfileobj(r,f)
 
 def main():
-    ap=argparse.ArgumentParser(); ap.add_argument("--dataset",choices=["tdd","open-reference","all"],default="tdd"); ap.add_argument("--kaggle-dataset",default=DEFAULT_KAGGLE); ap.add_argument("--archive"); ap.add_argument("--force",action="store_true"); args=ap.parse_args()
+    ap=argparse.ArgumentParser()
+    ap.add_argument("--dataset",choices=["tdd","open-reference","all"],default="tdd")
+    ap.add_argument("--kaggle-dataset",default=DEFAULT_KAGGLE)
+    ap.add_argument("--archive")
+    ap.add_argument("--force",action="store_true")
+    ap.add_argument("--no-hybrid",action="store_true",help="Disable the Tufts radiograph+mask hybrid fallback.")
+    args=ap.parse_args()
     if args.dataset in ("tdd","all"):
         prepared=ROOT/"data/tdd"; raw=ROOT/"data/tdd_download"
         if has_prepared_pairs(prepared) and not args.force: print("[download] TDD already prepared:",prepared)
@@ -90,8 +103,9 @@ def main():
             if not ok: ok=try_kagglehub(args.kaggle_dataset,raw)
             if not ok: ok=try_kaggle_cli(args.kaggle_dataset,raw)
             if not ok: ok=try_direct_kaggle(args.kaggle_dataset,raw)
+            if not ok and not args.no_hybrid: ok=try_hybrid_tdd(raw)
             if not ok:
-                raise SystemExit("TDD acquisition failed. Configure Kaggle credentials, obtain TDD from https://tdd.ece.tufts.edu/, or place paired files under data/tdd/images and data/tdd/masks. No alternate dataset has been silently substituted for TDD.")
+                raise SystemExit("TDD acquisition failed across the full mirror and hybrid Tufts routes. No alternate dental dataset was silently substituted. See logs for exact upstream host failures.")
             print("[download] Raw TDD material saved under:",raw)
     if args.dataset in ("open-reference","all"):
         out=ROOT/"data/open_reference_download"; out.mkdir(parents=True,exist_ok=True); zip_path=out/"hxt48yk462-1.zip"
