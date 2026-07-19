@@ -1,0 +1,22 @@
+mode: paper
+seed: 42
+data_root: data/tdd
+output_dir: outputs/paper
+image_height: 512
+image_width: 512
+batch_size: 4
+epochs: 50
+learning_rate: 0.001
+base_channels: 32
+threshold: 0.5
+loss: bce
+num_workers: 2
+resume: true
+
+# Paper-derived / inferred configuration:
+# The paper's pseudocode explicitly shows:
+#   BinaryCrossentropy, Adam(lr=0.001), num_epochs=50.
+# The paper does NOT publish:
+#   exact split IDs, seed, batch size, complete augmentation settings,
+#   exact resize/aspect policy, post-processing threshold, or checkpoint.
+# These unknowns are recorded rather than silently invented.

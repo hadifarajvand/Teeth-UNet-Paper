@@ -1,3 +1,9 @@
 __pycache__/
 *.pyc
 .venv/
+.env
+data/tdd/*
+!data/tdd/README.md
+data/open_reference/*
+!data/open_reference/README.md
+outputs/checkpoints/*.pt

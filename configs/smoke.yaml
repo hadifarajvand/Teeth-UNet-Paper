@@ -1,0 +1,14 @@
+mode: smoke
+seed: 42
+data_root: data/bootstrap_synthetic
+output_dir: outputs/smoke
+image_height: 128
+image_width: 256
+batch_size: 4
+epochs: 8
+learning_rate: 0.001
+base_channels: 8
+threshold: 0.5
+loss: bce
+num_workers: 0
+resume: true
