@@ -1,0 +1,106 @@
+name: Full TDD paper reproduction
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/paper.yml'
+
+permissions:
+  contents: write
+
+env:
+  PYTHONUNBUFFERED: '1'
+  OMP_NUM_THREADS: '2'
+  MKL_NUM_THREADS: '2'
+
+jobs:
+  reproduce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Acquire Tufts Dental Database
+        id: acquire
+        shell: bash
+        run: |
+          mkdir -p outputs/paper
+          set +e
+          python scripts/download_all_data.py --dataset tdd 2>&1 | tee outputs/paper/dataset_acquisition.log
+          code=${PIPESTATUS[0]}
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" -ne 0 ]; then
+            cat > outputs/paper/DATASET_BLOCKED.md <<'EOF'
+          # TDD acquisition blocked
+
+          The automated full-paper workflow attempted the configured Tufts Dental Database acquisition routes but the dataset host did not provide the bytes to this runner.
+
+          No substitute dataset was used or mislabeled as TDD. See `dataset_acquisition.log` for the exact host/API failure.
+          EOF
+          fi
+
+      - name: Commit acquisition evidence when blocked
+        if: steps.acquire.outputs.exit_code != '0'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f outputs/paper/dataset_acquisition.log outputs/paper/DATASET_BLOCKED.md
+          git diff --cached --quiet || git commit -m "chore: record TDD acquisition attempt"
+          git push || true
+
+      - name: Stop if TDD could not be acquired
+        if: steps.acquire.outputs.exit_code != '0'
+        run: exit 1
+
+      - name: Normalize TDD image-mask pairs
+        if: steps.acquire.outputs.exit_code == '0'
+        run: python scripts/prepare_tdd.py --source data/tdd_download --dest data/tdd --min-pairs 900
+
+      - name: Validate exact-data provenance
+        if: steps.acquire.outputs.exit_code == '0'
+        run: |
+          python scripts/validate_dataset.py --root data/tdd
+          python scripts/verify_tdd_provenance.py --root data/tdd --min-pairs 900
+
+      - name: Run full candidate-paper configuration
+        if: steps.acquire.outputs.exit_code == '0'
+        run: python scripts/reproduce_all.py --config configs/paper.yaml
+
+      - name: Compare with reported paper targets
+        if: steps.acquire.outputs.exit_code == '0'
+        run: python scripts/compare_to_paper.py --metrics outputs/paper/metrics.json --out outputs/paper/PAPER_COMPARISON.md
+
+      - name: Acceptance gate
+        if: steps.acquire.outputs.exit_code == '0'
+        run: python scripts/acceptance_check.py --output-dir outputs/paper --require-paper-data
+
+      - name: Upload full reproduction artifact
+        if: steps.acquire.outputs.exit_code == '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-tdd-paper-reproduction
+          path: |
+            outputs/paper
+            outputs/tdd_provenance.json
+          retention-days: 90
+
+      - name: Commit final paper outputs
+        if: steps.acquire.outputs.exit_code == '0'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f outputs/paper outputs/tdd_provenance.json
+          git diff --cached --quiet && exit 0
+          git commit -m "results: full TDD paper reproduction"
+          git push
