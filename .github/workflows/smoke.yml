@@ -9,6 +9,8 @@ on:
       - 'configs/**'
       - 'requirements.txt'
       - '.github/workflows/smoke.yml'
+permissions:
+  contents: write
 jobs:
   smoke:
     runs-on: ubuntu-latest
@@ -25,3 +27,11 @@ jobs:
         with:
           name: smoke-reproduction-outputs
           path: outputs/smoke
+      - name: Commit reproducible smoke outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f outputs/smoke data/bootstrap_synthetic
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: regenerate smoke outputs"
+          git push
