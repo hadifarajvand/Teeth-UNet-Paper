@@ -1,0 +1,11 @@
+{
+  "loss": 0.43136271834373474,
+  "dice": 0.9171192049980164,
+  "iou": 0.846945196390152,
+  "mode": "smoke",
+  "device": "cpu",
+  "n_train": 33,
+  "n_val": 7,
+  "n_test": 8,
+  "note": "Smoke metrics are pipeline-validation metrics, not paper reproduction metrics."
+}
