@@ -2,8 +2,16 @@ __pycache__/
 *.pyc
 .venv/
 .env
+
+# Datasets are downloaded/generated INSIDE the cloned repository under data/.
+# They remain local by default to avoid committing large medical-image archives.
 data/tdd/*
 !data/tdd/README.md
+data/tdd_download/
 data/open_reference/*
 !data/open_reference/README.md
+data/open_reference_download/
+data/bootstrap_synthetic/
+
+# Large model artifacts/checkpoints.
 outputs/checkpoints/*.pt
