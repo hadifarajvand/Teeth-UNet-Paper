@@ -1,0 +1,27 @@
+name: Smoke reproduction
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'scripts/**'
+      - 'configs/**'
+      - 'requirements.txt'
+      - '.github/workflows/smoke.yml'
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: python scripts/generate_bootstrap_dataset.py --root data/bootstrap_synthetic --count 48
+      - run: python scripts/reproduce_all.py --config configs/smoke.yaml
+      - run: python scripts/acceptance_check.py --output-dir outputs/smoke
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smoke-reproduction-outputs
+          path: outputs/smoke
