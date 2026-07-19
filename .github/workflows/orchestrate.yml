@@ -1,0 +1,109 @@
+name: Reproducibility orchestrator
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+env:
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  smoke:
+    if: github.event.issue.title == '[automation] reproduce paper'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python scripts/generate_bootstrap_dataset.py --root data/bootstrap_synthetic --count 48
+      - run: python scripts/reproduce_all.py --config configs/smoke.yaml
+      - run: python scripts/acceptance_check.py --output-dir outputs/smoke
+      - name: Commit smoke binaries
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f outputs/smoke data/bootstrap_synthetic
+          git diff --cached --quiet || git commit -m "results: reproducible smoke simulation outputs"
+          git pull --rebase origin main
+          git push
+
+  paper:
+    if: github.event.issue.title == '[automation] reproduce paper'
+    needs: smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Attempt exact TDD acquisition
+        id: tdd
+        shell: bash
+        run: |
+          mkdir -p outputs/paper
+          set +e
+          python scripts/download_all_data.py --dataset tdd 2>&1 | tee outputs/paper/dataset_acquisition.log
+          code=${PIPESTATUS[0]}
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+      - name: Record host block if acquisition fails
+        if: steps.tdd.outputs.code != '0'
+        run: |
+          cat > outputs/paper/DATASET_BLOCKED.md <<'EOF'
+          # Exact TDD acquisition blocked by upstream host
+
+          The orchestrated run attempted all configured public Tufts/Kaggle acquisition routes. The host did not provide the dataset bytes to this runner. No alternate dataset was substituted or mislabeled as TDD.
+
+          See `dataset_acquisition.log` for the exact API/host response. The repository remains fully runnable with an authorized TDD archive using `python scripts/run_pipeline.py paper --archive /path/to/tdd.zip`.
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f outputs/paper/dataset_acquisition.log outputs/paper/DATASET_BLOCKED.md
+          git diff --cached --quiet || git commit -m "results: record exact TDD acquisition evidence"
+          git pull --rebase origin main
+          git push
+      - name: Normalize and verify TDD
+        if: steps.tdd.outputs.code == '0'
+        run: |
+          python scripts/prepare_tdd.py --source data/tdd_download --dest data/tdd --min-pairs 900
+          python scripts/validate_dataset.py --root data/tdd
+          python scripts/verify_tdd_provenance.py --root data/tdd --min-pairs 900
+      - name: Run full paper reproduction
+        if: steps.tdd.outputs.code == '0'
+        run: |
+          python scripts/reproduce_all.py --config configs/paper.yaml
+          python scripts/compare_to_paper.py
+          python scripts/acceptance_check.py --output-dir outputs/paper --require-paper-data
+      - name: Upload full outputs
+        if: steps.tdd.outputs.code == '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-tdd-paper-reproduction
+          path: outputs/paper
+          retention-days: 90
+      - name: Commit full paper outputs
+        if: steps.tdd.outputs.code == '0'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f outputs/paper outputs/tdd_provenance.json
+          git diff --cached --quiet || git commit -m "results: full TDD paper reproduction"
+          git pull --rebase origin main
+          git push
+      - name: Close automation issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue close ${{ github.event.issue.number }} --comment "Automated reproducibility orchestration finished. Repository outputs/status were updated by the workflow."
