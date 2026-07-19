@@ -1,0 +1,8 @@
+image,mask
+data/bootstrap_synthetic/images/sample_038.png,data/bootstrap_synthetic/masks/sample_038.png
+data/bootstrap_synthetic/images/sample_045.png,data/bootstrap_synthetic/masks/sample_045.png
+data/bootstrap_synthetic/images/sample_002.png,data/bootstrap_synthetic/masks/sample_002.png
+data/bootstrap_synthetic/images/sample_027.png,data/bootstrap_synthetic/masks/sample_027.png
+data/bootstrap_synthetic/images/sample_037.png,data/bootstrap_synthetic/masks/sample_037.png
+data/bootstrap_synthetic/images/sample_005.png,data/bootstrap_synthetic/masks/sample_005.png
+data/bootstrap_synthetic/images/sample_034.png,data/bootstrap_synthetic/masks/sample_034.png
